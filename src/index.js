@@ -1,4 +1,5 @@
 const { Client, IntentsBitField } = require("discord.js");
+const { Configuration, OpenAIApi } = require("openai");
 require("dotenv").config();
 
 const client = new Client({
@@ -10,39 +11,72 @@ const client = new Client({
   ],
 });
 
-client.on('ready', (c) => {
-    console.log(c.user.username, 'is online!');
-})
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-client.on('messageCreate', (message) => {
-    if (message.author.bot) {
-        return;
-    }
+const openai = new OpenAIApi(configuration);
 
-    if (message.content === 'ping') {
-        message.reply('pong');
-    }
-})
+client.on("ready", (c) => {
+  console.log(c.user.username, "is online!");
+});
 
-client.on('interactionCreate', (interaction) => {
-    if (!interaction.isChatInputCommand()) {
-        return;
-    }
+client.on("messageCreate", (message) => {
+  if (message.author.bot) {
+    return;
+  }
 
-    if (interaction.commandName === 'ping') {
-        interaction.reply('pong!');
-    }
+  if (message.content === "ping") {
+    message.reply("pong");
+  }
+});
 
-    if (interaction.commandName === 'add') {
-        const num1 = interaction.options.get('first-number');
-        const num2 = interaction.options.get('second-number');
-        interaction.reply(`${num1.value + num2.value}`);
-    }
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isChatInputCommand()) {
+    return;
+  }
 
-    if (interaction.commandName === 'prompt') {
-        const prompt = interaction.options.get('prompt').value;
-        interaction.reply(`${prompt}`);
+  // ping command 
+  if (interaction.commandName === "ping") {
+    interaction.reply("pong!");
+  }
+
+  // add command 
+  if (interaction.commandName === "add") {
+    const num1 = interaction.options.get("first-number").value;
+    const num2 = interaction.options.get("second-number").value;
+    interaction.reply(`${num1 + num2}`);
+  }
+
+  // game command 
+  if (interaction.commandName === "game") {
+    const word = interaction.options.get("word").value.split('');
+    for (let i = word.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [word[i], word[j]] = [word[j], word[i]];
     }
-})
+    const mixedWord = word.join('');
+    interaction.reply(mixedWord);
+  }
+
+  // prompt command 
+  if (interaction.commandName === "prompt") {
+    const prompt = interaction.options.get("prompt").value;
+
+    const response = await openai.createCompletion({
+      model: "text-davinci-003",
+      prompt: prompt,
+      max_tokens: 150,
+      temperature: 0.7,
+      top_p: 1,
+    });
+
+    try {
+      interaction.reply(response.data.choices[0].text);
+    } catch (err) {
+      console.log(err);
+    }
+  }
+});
 
 client.login(process.env.DISCORD_BOT_TOKEN);
